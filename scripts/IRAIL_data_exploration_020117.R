@@ -55,18 +55,6 @@ dat <- trips %>%
 
 # NEW VARIABLES -----------------------------------------------------------
 
-# Date and time
-#dat$time <- format(strptime(dat$date_time, "%I:%M:%S %p"), format = "%H:%M:%S")
-#format(strftime(dat$time, "%I:%M:%S %p"), format = "%H:%M:%S")
-#strptime(dat$time, format = "%H:%M:%S %p")
-
-#strptime(x = dat$time, format="%H:%M:%S %p")
-
-#parse_date_time(dat$time, "%H:%M:%S %p")
-
-#substr(as.character(dat$date_time), 12, 16)
-#str(dat)
-
 # date-time
 dat$date_time <- paste(dat$date, dat$time, sep = " ")
 dat$date_time <- parse_date_time(dat$date_time,  "Ymd HMS p")
@@ -238,6 +226,7 @@ dat2 <- dat[which(dat$from.country.code == "be" &
                     dat$to.country.code == "be" & 
                     dat$to.latitude > 50.37680), ]
 
+write.csv(dat2, "trip_data_cleaned.csv")
 
 
 
