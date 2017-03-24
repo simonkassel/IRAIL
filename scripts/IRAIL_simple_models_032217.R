@@ -71,9 +71,31 @@ stations_pp <- ppp(stations$longitude, stations$latitude, window = be_window)
 
 dist_table <- nncross(stations_pp, stations_pp, what = c("dist"), 
                       k = c(2:6), is.sorted.X = FALSE, is.sorted.Y = FALSE)
-
 # variable in stations data frame
 stations$dist_5_stations <- (dist_table$dist.2 + dist_table$dist.3 + 
     dist_table$dist.4 + dist_table$dist.5 + dist_table$dist.6) / 5
+
+
+# count the number of vehicles that stop at each station
+stations$num_trains <- 0
+iter <- 0
+
+for (x in row.names(stations)) {
+  station_id <- stations[x, "station"]
+  counter <- 0
+  for (i in row.names(line_info)) {
+    if (grepl(station_id, line_info[i, "stopping_station_ids"])) {
+      counter <- counter + 1
+    }
+  }
+  stations[x, "num_trains"] <- counter
+  iter <- iter + 1
+  print(paste("Completed [", iter, "] of ", nrow(stations), " stations.", sep = ""))
+}
+
+
+
+
+
 
 

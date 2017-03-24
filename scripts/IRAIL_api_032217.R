@@ -18,15 +18,19 @@ options(scipen = "999")
 
 
 # FIND ROUTE INFO FROM IRAIL API ------------------------------------------
-dat$date_api <- paste(
-  substr(dat$date, 6, 7),
-  substr(dat$date, 9, 10),
-  substr(dat$date, 3, 4),
-  sep = ""
-)
+# dat$date_api <- paste(
+#   substr(dat$date, 6, 7),
+#   substr(dat$date, 9, 10),
+#   substr(dat$date, 3, 4),
+#   sep = ""
+# )
+
+# grabData <- function(x) {
+#   return(c(dat$date_api[x], dat$vehicle[x]))
+# }
 
 grabData <- function(x) {
-  return(c(dat$date_api[x], dat$vehicle[x]))
+  return(dat$vehicle[x])
 }
 
 queries <- llply(as.list(1:nrow(dat)), grabData) %>% unique()
@@ -35,24 +39,33 @@ theList <- list()
 iter <- 1
 
 for (i in queries) {
-  vehicleNo <- i[2]
-  date <- i[1]
+  #vehicleNo <- i[2]
+  #date <- i[1]
+  vehicleNo <- i[1]
   
-  URL <- paste("https://api.irail.be/vehicle/?id=BE.NMBS.", vehicleNo, "&date=", date, sep = "")
+  # URL <- paste("https://api.irail.be/vehicle/?id=BE.NMBS.", vehicleNo, "&date=", date, sep = "")
+  URL <- paste("https://api.irail.be/vehicle/?id=BE.NMBS.", vehicleNo, sep = "")
+  
   xml_dat <- getURL(URL)
   
   if (nchar(xml_dat) == 0) {
-    
-    print("date didn't work, trying withou")
-    URL <- paste("https://api.irail.be/vehicle/?id=BE.NMBS.", vehicleNo, sep = "")
-    xml_dat <- getURL(URL)
-    
-    if (nchar(xml_dat) == 0) {
-      print(paste("Row number", iter, "has no result", sep = " "))
-      theList[[iter]] <- NA
-      break()
-    }
+    print(paste("Row number", iter, "has no result", sep = " "))
+    theList[[iter]] <- NA
+    break()
   }
+  
+  # if (nchar(xml_dat) == 0) {
+  #   
+  #   print("date didn't work, trying without")
+  #   URL <- paste("https://api.irail.be/vehicle/?id=BE.NMBS.", vehicleNo, sep = "")
+  #   xml_dat <- getURL(URL)
+  #   
+  #   if (nchar(xml_dat) == 0) {
+  #     print(paste("Row number", iter, "has no result", sep = " "))
+  #     theList[[iter]] <- NA
+  #     break()
+  #   }
+  # }
     
   xlist <- xmlToList(xml_dat)
     
@@ -70,10 +83,12 @@ for (i in queries) {
   
   theList[[iter]] <- station_vector
   
-  iter = iter + 1
   print(paste("completed ", "[", iter, "] of ", length(queries), " queries.", sep = ""))
+  iter = iter + 1
 }
 
 names <- lapply(queries, function(x) {
-  return(x[[2]])
-})
+  return(x[[1]])
+}) %>% unlist()
+alist <- setNames(theList, names) 
+
