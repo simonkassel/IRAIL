@@ -22,8 +22,6 @@ trips <- read.csv("https://raw.githubusercontent.com/simonkassel/IRAIL/master/da
 test_trips <- read.csv("https://inclass.kaggle.com/blobs/download/forum-message-attachment-files/5802/trains_test.csv")
 line_info <- read.csv("https://raw.githubusercontent.com/simonkassel/IRAIL/master/data/line_info.csv")
 
-head(stations)
-
 # CLEAN/JOIN DATA ------------------------------------------------------------
 
 # generate a station code from URI field
@@ -226,7 +224,28 @@ dat2 <- dat[which(dat$from.country.code == "be" &
                     dat$to.country.code == "be" & 
                     dat$to.latitude > 50.37680), ]
 
-write.csv(dat2, "trip_data_cleaned.csv")
+
+# REGION FIXED EFFECTS ----------------------------------------------------
+
+provinces <- readOGR("https://raw.githubusercontent.com/simonkassel/IRAIL/master/data/BE_provinces.geojson")
+
+stations$station <- stations$name
+stations_sp <- SpatialPointsDataFrame(cbind(stations$longitude, stations$latitude),
+                                      data = stations, proj4string = provinces@proj4string)
+
+swp <- cbind(stations, over(stations_sp, provinces))[, c("station", "NAME_2")]
+swp$station <- as.numeric(swp$station)
+
+names(swp) <- c("from.name", "from.prov")
+dat3 <- left_join(dat2, swp, by = "from.name")
+
+names(swp) <- c("to.name", "to.prov")
+dat4 <- left_join(dat3, swp, by = "to.name")
+
+dat4$to.prov <- as.factor(dat4$to.prov)
+dat4$from.prov <- as.factor(dat4$from.prov)
 
 
+# OUTPUT MODEL DATASET ----------------------------------------------------
 
+write.csv(dat4, "trip_data_cleaned.csv")
