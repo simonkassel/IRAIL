@@ -61,23 +61,25 @@ for (i in line_count$station) {
 stations <- left_join(stations, line_count)
 stations <- findHubs(stations, 11)[,c("groups", "k", "maxcount")] %>% 
   cbind(stations, .)
-stations$groups <- stations$groups %>% as.factor()
+stations$groups <- stations$groups %>% paste0("g", .) %>% as.factor()
 
 
 stations$maj_groups <- stations[,c("count")] %>%
   dist(method = "euclidean") %>%
   hclust(method="ward.D") %>%
   cutree(5) %>%
+  paste0("mg", .) %>%
   as.factor()
 
-stations$major_hub <- ifelse(stations$maj_groups == "5", "1", "0")
-stations$non_hub <- ifelse(stations$maj_groups == "2", "1", "0")
+stations$major_hub <- ifelse(stations$maj_groups == "mg5", "Y", "N")
+stations$non_hub <- ifelse(stations$maj_groups == "mg2", "Y", "N")
 
 # CLEAN/JOIN DATA ------------------------------------------------------------
 
 # join line to trips
 trips <- plyr::join(trips, lbc[,c(2:3)], by = "connection", type = "left", match = "first") %>%
   na.omit()
+trips$line <- paste0("l.", trips$line) %>% as.factor()
 
 # Join together
 dat <- trips %>% 
@@ -88,7 +90,7 @@ dat <- trips %>%
 # NEW VARIABLES -----------------------------------------------------------
 
 # Occupancy binary variables
-dat$occ_binary <- ifelse(dat$occupancy == "high", 1, 0) %>% as.factor()
+dat$occ_binary <- ifelse(dat$occupancy == "high", "H", "L") %>% as.factor()
 
 # date-time
 dat$date_time <- paste(dat$date, dat$time, sep = " ") %>%
@@ -112,7 +114,6 @@ dat$min_of_day <- (60 * dat$hour) + dat$min
 # Day of week
 dat$day_of_week <- weekdays(dat$date) %>%
   factor(levels = c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"))
-dat$weekend <- ifelse(dat$day_of_week == "Sunday" | dat$day_of_week == "Saturday", "Y", "N")
 
 # Rush hour variables
 dat$dist_morning_rush <- ifelse(abs(dat$hour - 8) < abs(dat$hour - 32), abs(dat$hour - 8), abs(dat$hour - 32)) 
@@ -120,14 +121,16 @@ dat$dist_evening_rush <- ifelse(abs(dat$hour - 18) < abs(dat$hour + 8), abs(dat$
 dat$dist_rush <- ifelse(dat$dist_morning_rush < dat$dist_evening_rush, dat$dist_morning_rush, dat$dist_evening_rush)
 
 # dummy variable of to/from brussels
-dat$from_bruss <- ifelse(grepl("Brussel", dat$from.name), 1, 0) %>% as.factor()
-dat$to_bruss <- ifelse(grepl("Brussel", dat$to.name), 1, 0) %>% as.factor()
-dat$to_from_bruss <- ifelse(dat$from_bruss == 1 | dat$to_bruss == 1, 1, 0)
+dat$from_bruss <- ifelse(grepl("Brussel", dat$from.name), "Y", "N") %>% as.factor()
+dat$to_bruss <- ifelse(grepl("Brussel", dat$to.name), "Y", "N") %>% as.factor()
+dat$to_from_bruss <- ifelse(dat$from_bruss == "Y" | dat$to_bruss == "Y", "Y", "N") %>% as.factor()
 
 # vehicle line info
 line_info$vehicle <- line_info$vehicle_id
 dat <- left_join(dat, select(line_info, vehicle, vehicle_type, nr_of_stops))
 
+# clean up the vehicle type a bit
+dat$vehicle_type <- ifelse(dat$vehicle_type %in% c("ICE", "THA", "TRN"), "IC", dat$vehicle_type)
 
 # WEATHER -----------------------------------------------------------------
 
@@ -135,7 +138,7 @@ weather_data <- c("july_1", "july_2", "aug_1", "aug_2", "sep_1", "sep_2", "oct_1
 
 dat <- ldply(weather_data, findWeather) %>%
   left_join(dat, .)
-dat$weather_type <- dat$weather_type %>% as.factor()
+dat$weather_type <- dat$weather_type %>% paste0("wt.", .) %>% as.factor()
 
 
 # OUTPUT MODEL DATASET ----------------------------------------------------
@@ -152,5 +155,15 @@ paste0("Removed ", allrows - remainingrows, " rows with NA values.") %>% print()
 
 write.csv(dat, "trip_data_cleaned.csv")
 
+dat_p <- dat %>% select(occ_binary, line, hour, day_of_week, dist_rush, to_from_bruss,
+                        vehicle_type, nr_of_stops,
+                        temperature, humidity, windspeed, visibility, weather_type,
+                        from.avg_stop_times, from.prov, from.count, from.groups, from.maxcount, 
+                        from.maj_groups, from.major_hub, from.non_hub,
+                        to.avg_stop_times, to.prov, to.count, to.groups, to.maxcount, 
+                        to.maj_groups, to.major_hub, to.non_hub)
+
 remove(lbc, line_count, test_trips, all_routes, allrows, count_of_routes, i, remainingrows,
        weather_data, x, stations_sp, provinces)
+
+

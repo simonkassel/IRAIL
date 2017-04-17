@@ -14,33 +14,34 @@ options(stringsAsFactors = FALSE)
 options(scipen = "999")
 
 # data
-d <- read.csv("https://raw.githubusercontent.com/simonkassel/IRAIL/master/data/trip_data_cleaned.csv")
+dat <- read.csv("https://raw.githubusercontent.com/simonkassel/IRAIL/master/data/trip_data_cleaned.csv")
 stations <- read.csv("https://raw.githubusercontent.com/simonkassel/IRAIL/master/data/stations.csv")
 
 
 # INDEPENDENT VARIABLES ---------------------------------------------------
 # glm mod
-mod1 <- logitMod(d, c("day_of_week", "hour_fact", "to.avg_stop_times", 
-                         "nr_of_stops", "vehicle_type", "to_bruss"), seed = 456)
+mod1 <- logitMod(dat, c("day_of_week", "hour", "to.avg_stop_times", 
+                         "nr_of_stops", "vehicle_type"), seed = 456)
 
 # decision tree moded
-dtMod1 <- dtMod(d, c("day_of_week", "hour_fact", "to.avg_stop_times", 
-                        "nr_of_stops", "vehicle_type", "to_bruss"), seed = 456)
+dtMod1 <- dtMod(dat, c("day_of_week", "hour", "to.avg_stop_times", 
+                     "nr_of_stops", "vehicle_type", "to.major_hub"), seed = 456)
 
 
 # PREDICTING WITH FIXED EFFECTS -------------------------------------------
 
 # with line fixed effect p-values
 # glm mod
-lfe_vars <- c("day_of_week", "hour", "to.avg_stop_times", "nr_of_stops", 
-              "vehicle_type", "to_bruss", "line")
-mod2 <- logitMod(d, lfe_vars, seed = 456)
+lfe_vars <- c("day_of_week", "hour", "to.avg_stop_times", 
+              "nr_of_stops", "vehicle_type", "line")
+mod2 <- logitMod(dat, lfe_vars, seed = 456)
+
 
 # with province fixed effect p-values
 pfe_vars <- c("day_of_week", "hour", "to.avg_stop_times", "nr_of_stops", 
               "vehicle_type", "to_bruss", "to.prov")
 
-mod3 <- logitMod(dat6, pfe_vars, seed = 456)
+mod3 <- logitMod(dat, pfe_vars, seed = 456)
 
 
 # VARIABLE INTERACTIONS ---------------------------------------------------
