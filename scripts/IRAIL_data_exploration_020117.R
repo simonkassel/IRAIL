@@ -14,11 +14,8 @@ options(stringsAsFactors = FALSE)
 options(scipen = "999")
 
 # data
-stations <- read.csv("https://raw.githubusercontent.com/simonkassel/IRAIL/master/data/stations.csv")
-trips <- read.csv("https://raw.githubusercontent.com/simonkassel/IRAIL/master/data/trains_train.csv")
-test_trips <- read.csv("https://inclass.kaggle.com/blobs/download/forum-message-attachment-files/5802/trains_test.csv")
-line_info <- read.csv("https://raw.githubusercontent.com/simonkassel/IRAIL/master/data/line_info.csv")
-
+stations <- read.csv("https://raw.githubusercontent.com/simonkassel/IRAIL/master/data/stations_cleaned.csv")
+dat <- read.csv("https://raw.githubusercontent.com/simonkassel/IRAIL/master/data/trip_data_clean.csv")
 
 # MAP THE STATIONS --------------------------------------------------------
 # new station variables
