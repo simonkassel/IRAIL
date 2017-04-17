@@ -19,9 +19,11 @@ stations <- read.csv("https://raw.githubusercontent.com/simonkassel/IRAIL/master
 trips <- read.csv("https://raw.githubusercontent.com/simonkassel/IRAIL/master/data/trains_train.csv")
 line_info <- read.csv("https://raw.githubusercontent.com/simonkassel/IRAIL/master/data/line_info.csv")
 provinces <- readOGR("https://raw.githubusercontent.com/simonkassel/IRAIL/master/data/BE_provinces.geojson")
+lbc <- read.csv("https://raw.githubusercontent.com/simonkassel/IRAIL/master/data/line_by_connection.csv")
 
-# CLEAN/JOIN DATA ------------------------------------------------------------
 
+
+# CLEAN STATION DATA ------------------------------------------------------
 # station id field
 stations$station <- stations$URI %>% 
   substr(., substrFunc(stations$URI), nchar(stations$URI))
@@ -30,10 +32,53 @@ stations$station <- stations$URI %>%
 stations <- filter(stations, country.code == "be" & latitude > 50.37680)
 stations <- stations %>% select(station, name, longitude, latitude, avg_stop_times)
 
+
+
+# PROVINCE FIXED EFFECTS --------------------------------------------------
+stations_sp <- SpatialPointsDataFrame(cbind(stations$longitude, stations$latitude),
+                                      data = stations, proj4string = provinces@proj4string)
+
+provinces@data$prov <- provinces@data$NAME_2
+
+stations <- cbind(stations, over(stations_sp, provinces))[, c("station", "prov")] %>%
+  left_join(stations, ., by = "station")
+
+
+
+# NETWORK HIERARCHY -------------------------------------------------------
+all_routes <- line_info$stopping_station_ids %>% as.character()
+line_count <- data.frame(stations$station) 
+names(line_count) <- "station"
+line_count$count <- 0
+
+for (i in line_count$station) {
+  for (x in all_routes) {
+    if (grepl(i, x)) {
+      count_of_routes <- line_count[which(line_count$station == i), ]$count + 1
+      line_count[which(line_count$station == i), ]$count <- count_of_routes 
+    }
+  }
+}
+
+stations <- left_join(stations, line_count)
+
+stations <- findHubs(stations, 11)[,c("groups", "k", "maxcount")] %>% 
+  cbind(stations, .)
+
+stations$groups <- stations$groups %>% as.factor()
+
+
+# CLEAN/JOIN DATA ------------------------------------------------------------
+
+# join line to trips
+trips <- plyr::join(trips, lbc[,c(2:3)], by = "connection", type = "left", match = "first") %>%
+  na.omit()
+
 # Join together
 dat <- trips %>% 
   joinToTrips( ., "from") %>%
   joinToTrips( ., "to")
+
 
 # NEW VARIABLES -----------------------------------------------------------
 
@@ -41,8 +86,9 @@ dat <- trips %>%
 dat$occ_binary <- ifelse(dat$occupancy == "high", 1, 0) %>% as.factor()
 
 # date-time
-dat$date_time <- paste(dat$date, dat$time, sep = " ")
-dat$date_time <- parse_date_time(dat$date_time,  "Ymd HMS p")
+dat$date_time <- paste(dat$date, dat$time, sep = " ") %>%
+  parse_date_time("Ymd HMS p") %>%
+  round_date(unit = "hour")
 
 # date as date obj
 dat$date <- as.Date(dat$date)
@@ -77,25 +123,47 @@ dat$to_from_bruss <- ifelse(dat$from_bruss == 1 | dat$to_bruss == 1, 1, 0)
 line_info$vehicle <- line_info$vehicle_id
 dat <- left_join(dat, select(line_info, vehicle, vehicle_type, nr_of_stops))
 
-# remove records without a corresponding vehicle line
-dat <- na.omit(dat)
 
 
-# PROVINCE FIXED EFFECTS --------------------------------------------------
-stations_sp <- SpatialPointsDataFrame(cbind(stations$longitude, stations$latitude),
-                                      data = stations, proj4string = provinces@proj4string)
 
-swp <- cbind(stations, over(stations_sp, provinces))[, c("station", "NAME_2")]
 
-names(swp) <- c("from.station", "from.prov")
-dat <- left_join(dat, swp, by = "from.station")
 
-names(swp) <- c("to.station", "to.prov")
-dat <- left_join(dat, swp, by = "to.station")
+# WEATHER -----------------------------------------------------------------
+
+weather_csvs <- c("july_1", "july_2", "aug_1", "aug_2", "sep_1", "sep_2", "oct_1", "oct_2")
+
+findWeather <- function(month) {
+  url <- paste0("https://raw.githubusercontent.com/simonkassel/IRAIL/master/data/weather/weather_data_", month, ".csv")
+  temp <- read.csv(url)
+  temp$date_time <- parse_date_time(temp$date_time,  "Ymd HMS")
+  time_st_combos <- paste0(dat$date_time, dat$from.name)
+  temp <- w[which(paste0(w$date_time, w$station_name) %in% time_st_combos), 
+            c(!names(w) %in% c("X", "lat", "lng"))]
+  return(temp)
+}
+  
+
+
+
+
+
+
+
 
 
 
 # OUTPUT MODEL DATASET ----------------------------------------------------
+
+# Stations
+write.csv(stations, "stations_cleaned.csv")
+
+# Trips
+allrows <- nrow(dat)
+dat <- na.omit(dat)
+remainingrows <- nrow(dat)
+
+paste0("Removed " + allrows - remainingrows + " rows with NA values.") %>% print()
+
 write.csv(dat, "trip_data_cleaned.csv")
 
 

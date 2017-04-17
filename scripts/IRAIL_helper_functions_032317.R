@@ -148,7 +148,7 @@ fromToRename <- function(prefix){
   return(stations)
 }
 
-# Join in one dataset
+#----- Join in one dataset -----
 #   takes: 
 #     a data frame of trips and 
 #     a prefix to add to each station variable
@@ -159,5 +159,26 @@ joinToTrips <- function(tripDat, prefix){
   return(dat)
 }
 
+#----- Find the hubs within clusters of stations -----
+#   takes: 
+#     a data frame with latitude, longitude and count variables (df)
+#     a number of clusters to break the data up into (kvar)
+#   returns:
+#     a dataset of stations with their associated clusters and the max
+#     count hub within that cluster
+findHubs <- function(df, kvar) {
+  
+  d <- dist(df[,c("longitude", "latitude")], method = "euclidean")
+  fit <- hclust(d, method="ward.D") 
+  
+  groups <- cutree(fit, k = kvar) 
+  df$groups <- groups %>% unname() %>% as.factor()
+  maxtab <- ddply(df, ~groups, summarise, maxcount = max(count))
+  
+  hubs <- filter(df, count %in% maxtab$maxcount)
+  df$k <- paste0("k = ", kvar)
+  df <- left_join(df, maxtab)
+  return(df)
+}
 
 

@@ -141,3 +141,57 @@ ggplot(dat, aes(x = occupancy, fill = occupancy)) + geom_bar(stat = "count") +
   ggtitle("Dist. of training set occupancy levels") + xlab("") + ylab("Count")
 
 
+# NETOWRK HIERARCHY -------------------------------------------------------
+
+# needs to be cleaned up
+st$quint <- ntile(st$count, 10) 
+
+bmc <- get_googlemap(center = c(mean(st$longitude), mean(st$latitude)), zoom = 8, color = "bw")
+
+
+# Map stations in and out of training set
+map.stations <- ggmap(bmc) + 
+  geom_point(data = st, aes(x = longitude, y = latitude, color = count), size = 1) +
+  theme_map() +
+  #scale_color_brewer("Station in \nTraining Set?") +
+  ggtitle("Belgian Train Stations") +
+  theme( 
+    legend.position = c(.05,.85),
+    legend.direction = "horizontal",
+    plot.title = element_text(face = "bold", hjust = "0.5", size = 14))
+ggsave("IRAIL_stage1_mapping_stations.pdf", map.stations, device = "pdf", width = 8.5, height = 11, units = "in")
+
+
+# mapping clusters
+hubs <- findHubs(st, 5)
+for (i in c(6:13)) {
+  temp <- findHubs(st, i)
+  hubs <- rbind(hubs, temp)
+}
+
+ggplot(hubs, aes(longitude, latitude, color = as.factor(groups))) + geom_point(size = 0.5) +
+  geom_label(data = filter(hubs, maxcount == count), aes(label = name), size = 2) + 
+  facet_wrap(~k, ncol = 3) + theme_void() + theme(legend.position = "none")
+
+
+sorted <- arrange(st, desc(count))
+sorted$count_rank <- c(1:nrow(sorted))
+
+maxhubs <- head(sorted)
+maxhubs$h <- "hubs = 5"
+for (i in c(6:13)) {
+  temp <- head(sorted, i)
+  temp$h <- paste0("hubs = ", i)
+  maxhubs <- rbind(maxhubs, temp)
+}
+
+ggmap(bmc) + 
+  geom_point(data = maxhubs, aes(longitude, latitude, color = count), size = 2) + 
+  facet_wrap(~h, ncol = 3) + theme_void() + theme(legend.position = "none")
+
+
+
+ggplot(filter(hubs, maxcount == count & k == "k = 11"), aes(x = groups, y = count)) + 
+  geom_bar(stat = "identity") + facet_wrap(~k)
+
+
