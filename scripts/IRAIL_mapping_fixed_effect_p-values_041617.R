@@ -1,5 +1,5 @@
 # INTRO -------------------------------------------------------------------
-# Test simple preliminary models
+# Test simple preliminary models [needs cleaning]
 #   Simon Kassel
 #   Created: 23 Mar 17
 
@@ -70,25 +70,6 @@ ggplot() +
   scale_color_brewer("P-Value", palette = "YlGnBu", na.value = "grey10", labels = labels)
 
 # REGION FIXED EFFECTS ----------------------------------------------------
-
-provinces <- readOGR(".", "Provinces")
-provinces@proj4string
-plot(provinces)
-
-stations_sp <- SpatialPointsDataFrame(cbind(stations$longitude, stations$latitude),
-                                      data = stations, proj4string = provinces@proj4string)
-
-swp <- cbind(stations, over(stations_sp, provinces))[, c("station", "NAME_2")]
-swp$station <- as.numeric(swp$station)
-
-names(swp) <- c("from", "from.prov")
-dat4 <- left_join(dat3, swp, by = "from")
-
-names(swp) <- c("to", "to.prov")
-dat4 <- left_join(dat4, swp, by = "to")
-
-dat4$to.prov <- as.factor(dat4$to.prov)
-dat4$from.prov <- as.factor(dat4$from.prov)
 
 # TO province
 to.provinces <- unique(dat4$to.prov) %>% as.list()

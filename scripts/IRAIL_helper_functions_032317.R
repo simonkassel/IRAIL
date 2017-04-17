@@ -61,7 +61,7 @@ logitMod <- function(dat, ivars, seed, threshold = NULL) {
   
   packages(c("pROC", "caret"))
   
-  dat <- dat[ ,c("occ_binary", ivars)]
+  dat <- dat[ , c("occ_binary", ivars)]
 
   set.seed(seed)
   inTrain <- createDataPartition(dat$occ_binary, p = .75, list = FALSE) 
@@ -126,3 +126,38 @@ dtMod <- function(dat, ivars, seed = 123) {
   
   return(dt_mod)
 }
+
+# generate a station code from URI field
+#   takes:
+#     a URI string
+#   returns:
+#     a station ID
+substrFunc <- function(i){
+  return(rev(regexpr("\\/[^\\/]*$", i)) + 1)
+}
+
+# Clean column names
+#   takes:
+#     a prefix and appends it to eveery column name in the stations dataset
+#   returns:
+#     the data frame with adjusted column names
+fromToRename <- function(prefix){
+  stations$temp <- stations$station
+  colnames(stations) <- paste(prefix, names(stations), sep = ".")
+  colnames(stations)[ncol(stations)] <- prefix 
+  return(stations)
+}
+
+# Join in one dataset
+#   takes: 
+#     a data frame of trips and 
+#     a prefix to add to each station variable
+#   returns:
+#     a trip dataset with stations to/from prefix to station variable
+joinToTrips <- function(tripDat, prefix){
+  dat <- join(tripDat, fromToRename(prefix), by = prefix, type = "inner", match = "all")
+  return(dat)
+}
+
+
+

@@ -14,49 +14,60 @@ options(stringsAsFactors = FALSE)
 options(scipen = "999")
 
 # data
-dat2 <- read.csv("https://raw.githubusercontent.com/simonkassel/IRAIL/master/data/trip_data_cleaned.csv")
+d <- read.csv("https://raw.githubusercontent.com/simonkassel/IRAIL/master/data/trip_data_cleaned.csv")
 stations <- read.csv("https://raw.githubusercontent.com/simonkassel/IRAIL/master/data/stations.csv")
 
 
 # INDEPENDENT VARIABLES ---------------------------------------------------
-
 # glm mod
-mod1 <- logitMod(dat2, c("day_of_week", "hour_fact", "to.avg_stop_times", 
+mod1 <- logitMod(d, c("day_of_week", "hour_fact", "to.avg_stop_times", 
                          "nr_of_stops", "vehicle_type", "to_bruss"), seed = 456)
 
 # decision tree moded
-dtMod1 <- dtMod(dat2, c("day_of_week", "hour_fact", "to.avg_stop_times", 
+dtMod1 <- dtMod(d, c("day_of_week", "hour_fact", "to.avg_stop_times", 
                         "nr_of_stops", "vehicle_type", "to_bruss"), seed = 456)
 
 
 # PREDICTING WITH FIXED EFFECTS -------------------------------------------
 
-ref0coef <- coef(summary(glm1)) %>% data.frame()
-rownames(ref0coef)[1] <- "line0"
-
-ref0coef$name <- substr(rownames(ref0coef), 5, nchar(rownames(ref0coef)))
-
-head(line_fe)
-dat5 <- left_join(dat4, ref0coef, by = "name")
-dat5$hour_fact <- dat5$hour %>% as.factor()
-
 # with line fixed effect p-values
 # glm mod
-lfe_vars <- c("day_of_week", "hour", "to.avg_stop_times", "nr_of_stops", "vehicle_type", "to_bruss", "line.x", "to.prov")
-mod2 <- logitMod(dat5, lfe_vars, seed = 456)
-
-#dtmod2 <- dtMod(dat5, lfe_vars, seed = 456)
+lfe_vars <- c("day_of_week", "hour", "to.avg_stop_times", "nr_of_stops", 
+              "vehicle_type", "to_bruss", "line")
+mod2 <- logitMod(d, lfe_vars, seed = 456)
 
 # with province fixed effect p-values
-dat6 <- left_join(dat5, line_to.prov, by = "to.prov")
+pfe_vars <- c("day_of_week", "hour", "to.avg_stop_times", "nr_of_stops", 
+              "vehicle_type", "to_bruss", "to.prov")
 
-pfe_vars <- c(lfe_vars, "to.P.value")
 mod3 <- logitMod(dat6, pfe_vars, seed = 456)
-dtmod4 <- dtMod(dat6, pfe_vars, seed = 456)
 
 
 # VARIABLE INTERACTIONS ---------------------------------------------------
 
-glminteract <- glm(occ_binary ~ line * from.prov, dat4, family = "binomial")
+dat <- d[, c("line", "to.prov", "occ_binary")]
 
-summary(glminteract)
+set.seed(456)
+inTrain <- createDataPartition(dat$occ_binary, p = .75, list = FALSE) 
+training <- dat[inTrain, ]
+testing <- dat[-inTrain, ]
+
+glm_mod <- glm(occ_binary ~ . + to.prov:line, data = training)
+
+testing <- catVars(training, testing)
+
+pred_probs <- predict(glm_mod, testing) %>% abs() %>% unname()
+plot(roc(testing$occ_binary, pred_probs, direction="<"),
+     col="yellow", lwd=3, main="ROC Curve")
+
+if (is.null(threshold)) {
+  threshold <- quantile(na.omit(pred_probs), 
+                        mean(dat$occ_binary %>% as.numeric())) %>% 
+    unname() %>% round(digits = 3)
+  print(paste0("No threshold specified, using default calculated threshold of ", threshold, "."))
+}
+
+predictions <- ifelse(pred_probs > threshold, 1, 0)
+confusionMatrix(predictions, testing$occ_binary) %>% print()
+
+
