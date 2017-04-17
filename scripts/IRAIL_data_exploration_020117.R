@@ -7,7 +7,7 @@
 source("https://raw.githubusercontent.com/simonkassel/IRAIL/master/scripts/IRAIL_helper_functions_032317.R")
 
 # load packages
-packages(c("plyr", "dplyr", "RCurl", "ggplot2","lubridate", "ggmap", "ggthemes", "chron"))
+packages(c("plyr", "dplyr", "ggplot2", "ggmap", "ggthemes", "chron"))
 
 # global options
 options(stringsAsFactors = FALSE)

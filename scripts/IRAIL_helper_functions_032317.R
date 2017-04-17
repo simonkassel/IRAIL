@@ -1,11 +1,9 @@
 # IRAIL PROJECT HELPER FUNCTIONS ------------------------------------------
-
 # Simon Kassel
-
 
 # FUNCTIONS ---------------------------------------------------------------
 
-# checks for availability of packages, if not there it installs them and 
+#----- Check for availability of packages, if not there it installs them and -----
 # then it attaches all packages
 #   takes:
 #     a vector of package names in quotation marks
@@ -23,7 +21,8 @@ packages <- function(package_vector) {
 }
 
 
-# ensures that all levels of categorical variables present in test
+
+#----- Ensure that all levels of categorical variables present in test -----
 # sets are also in training sets
 #   takes:
 #     a data frame training set (train)
@@ -48,7 +47,8 @@ catVars <- function(train, test) {
 }
 
 
-# run a logisitc regression on a dataset with 
+
+#----- Run a logisitc regression on a dataset with -----
 #   takes:
 #     a vector of iv field names (ivars)
 #     a data frame (dat)
@@ -68,29 +68,31 @@ logitMod <- function(dat, ivars, seed, threshold = NULL) {
   training <- dat[inTrain, ]
   testing <- dat[-inTrain, ]
   
-  glm_mod <- glm(occ_binary ~ ., data = training)
+  glm_mod <- glm(occ_binary ~ ., data = training, family = "binomial")
 
   testing <- catVars(training, testing)
   
-  pred_probs <- predict(glm_mod, testing) %>% abs() %>% unname()
-  plot(roc(testing$occ_binary, pred_probs, direction="<"),
+  testing$pred_probs <- predict(glm_mod, testing) %>% abs() %>% unname()
+  testing <- na.omit(testing)
+  
+  plot(roc(testing$occ_binary, testing$pred_probs, direction="<"),
        col="yellow", lwd=3, main="ROC Curve")
   
   if (is.null(threshold)) {
-    threshold <- quantile(na.omit(pred_probs), 
-                          mean(dat$occ_binary %>% as.numeric())) %>% 
-                            unname() %>% round(digits = 3)
+    threshold <- quantile(na.omit(testing$pred_probs), table(dat$occ_binary)[2] / nrow(dat)) %>%
+      unname() %>% round(3)
     print(paste0("No threshold specified, using default calculated threshold of ", threshold, "."))
   }
   
-  predictions <- ifelse(pred_probs > threshold, 1, 0)
+  predictions <- ifelse(testing$pred_probs > threshold, 1, 0)
   confusionMatrix(predictions, testing$occ_binary) %>% print()
   
   return(glm_mod)
 }
 
 
-# run a decision tree model on dataset with occ_binary, dv 
+
+#----- Run a decision tree model on dataset with occ_binary -----
 #   takes:
 #     a vector of iv field names (ivars)
 #     a data frame (dat)
@@ -127,7 +129,8 @@ dtMod <- function(dat, ivars, seed = 123) {
   return(dt_mod)
 }
 
-# generate a station code from URI field
+
+#----- Generate a station code from URI field -----
 #   takes:
 #     a URI string
 #   returns:
@@ -136,7 +139,8 @@ substrFunc <- function(i){
   return(rev(regexpr("\\/[^\\/]*$", i)) + 1)
 }
 
-# Clean column names
+
+#----- Clean column names -----
 #   takes:
 #     a prefix and appends it to eveery column name in the stations dataset
 #   returns:
@@ -148,6 +152,7 @@ fromToRename <- function(prefix){
   return(stations)
 }
 
+
 #----- Join in one dataset -----
 #   takes: 
 #     a data frame of trips and 
@@ -158,6 +163,7 @@ joinToTrips <- function(tripDat, prefix){
   dat <- join(tripDat, fromToRename(prefix), by = prefix, type = "inner", match = "all")
   return(dat)
 }
+
 
 #----- Find the hubs within clusters of stations -----
 #   takes: 
@@ -179,6 +185,24 @@ findHubs <- function(df, kvar) {
   df$k <- paste0("k = ", kvar)
   df <- left_join(df, maxtab)
   return(df)
+}
+
+
+#----- Pull down relevant rows from weather csvs -----
+#   takes:
+#     a string for the suffix of the csv to pull down from a folder on github
+#   returns:
+#     a data frame with 
+findWeather <- function(month) {
+  url <- paste0("https://raw.githubusercontent.com/simonkassel/IRAIL/master/data/weather/weather_data_", month, ".csv")
+  temp <- read.csv(url)
+  temp$date_time <- parse_date_time(temp$date_time,  "Ymd HMS")
+  time_st_combos <- paste0(dat$date_time, dat$from.name)
+  matches <- temp[which(paste0(temp$date_time, temp$station_name) %in% time_st_combos), 
+                  c(!names(temp) %in% c("X", "lat", "lng"))]
+  names(matches)[1] <- "from.name"
+  paste0("Completed ", month, ".") %>% print()
+  return(matches)
 }
 
 

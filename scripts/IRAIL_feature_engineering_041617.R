@@ -8,7 +8,8 @@
 source("https://raw.githubusercontent.com/simonkassel/IRAIL/master/scripts/IRAIL_helper_functions_032317.R")
 
 # load packages
-packages(c("plyr", "dplyr", "RCurl", "ggplot2","lubridate", "ggmap", "ggthemes", "chron"))
+packages(c("plyr", "dplyr", "RCurl", "ggplot2","lubridate", "ggmap", "ggthemes", "chron",
+           "dendextend"))
 
 # global options
 options(stringsAsFactors = FALSE)
@@ -22,7 +23,6 @@ provinces <- readOGR("https://raw.githubusercontent.com/simonkassel/IRAIL/master
 lbc <- read.csv("https://raw.githubusercontent.com/simonkassel/IRAIL/master/data/line_by_connection.csv")
 
 
-
 # CLEAN STATION DATA ------------------------------------------------------
 # station id field
 stations$station <- stations$URI %>% 
@@ -33,7 +33,6 @@ stations <- filter(stations, country.code == "be" & latitude > 50.37680)
 stations <- stations %>% select(station, name, longitude, latitude, avg_stop_times)
 
 
-
 # PROVINCE FIXED EFFECTS --------------------------------------------------
 stations_sp <- SpatialPointsDataFrame(cbind(stations$longitude, stations$latitude),
                                       data = stations, proj4string = provinces@proj4string)
@@ -42,7 +41,6 @@ provinces@data$prov <- provinces@data$NAME_2
 
 stations <- cbind(stations, over(stations_sp, provinces))[, c("station", "prov")] %>%
   left_join(stations, ., by = "station")
-
 
 
 # NETWORK HIERARCHY -------------------------------------------------------
@@ -61,12 +59,19 @@ for (i in line_count$station) {
 }
 
 stations <- left_join(stations, line_count)
-
 stations <- findHubs(stations, 11)[,c("groups", "k", "maxcount")] %>% 
   cbind(stations, .)
-
 stations$groups <- stations$groups %>% as.factor()
 
+
+stations$maj_groups <- stations[,c("count")] %>%
+  dist(method = "euclidean") %>%
+  hclust(method="ward.D") %>%
+  cutree(5) %>%
+  as.factor()
+
+stations$major_hub <- ifelse(stations$maj_groups == "5", "1", "0")
+stations$non_hub <- ifelse(stations$maj_groups == "2", "1", "0")
 
 # CLEAN/JOIN DATA ------------------------------------------------------------
 
@@ -124,32 +129,13 @@ line_info$vehicle <- line_info$vehicle_id
 dat <- left_join(dat, select(line_info, vehicle, vehicle_type, nr_of_stops))
 
 
-
-
-
-
 # WEATHER -----------------------------------------------------------------
 
-weather_csvs <- c("july_1", "july_2", "aug_1", "aug_2", "sep_1", "sep_2", "oct_1", "oct_2")
+weather_data <- c("july_1", "july_2", "aug_1", "aug_2", "sep_1", "sep_2", "oct_1", "oct_2")
 
-findWeather <- function(month) {
-  url <- paste0("https://raw.githubusercontent.com/simonkassel/IRAIL/master/data/weather/weather_data_", month, ".csv")
-  temp <- read.csv(url)
-  temp$date_time <- parse_date_time(temp$date_time,  "Ymd HMS")
-  time_st_combos <- paste0(dat$date_time, dat$from.name)
-  temp <- w[which(paste0(w$date_time, w$station_name) %in% time_st_combos), 
-            c(!names(w) %in% c("X", "lat", "lng"))]
-  return(temp)
-}
-  
-
-
-
-
-
-
-
-
+dat <- ldply(weather_data, findWeather) %>%
+  left_join(dat, .)
+dat$weather_type <- dat$weather_type %>% as.factor()
 
 
 # OUTPUT MODEL DATASET ----------------------------------------------------
@@ -162,8 +148,9 @@ allrows <- nrow(dat)
 dat <- na.omit(dat)
 remainingrows <- nrow(dat)
 
-paste0("Removed " + allrows - remainingrows + " rows with NA values.") %>% print()
+paste0("Removed ", allrows - remainingrows, " rows with NA values.") %>% print()
 
 write.csv(dat, "trip_data_cleaned.csv")
 
-
+remove(lbc, line_count, test_trips, all_routes, allrows, count_of_routes, i, remainingrows,
+       weather_data, x, stations_sp, provinces)
