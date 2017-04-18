@@ -17,12 +17,6 @@ options(scipen = "999")
 md <- read.csv("https://raw.githubusercontent.com/simonkassel/IRAIL/master/data/model_variables.csv")
 
 
-
-
-ggplot(md, aes(x = occ_binary, y = tf_avg_stop)) + geom_boxplot()
-ggplot(md, aes(x = occ_binary, fill = to.groups)) + geom_bar(position = "fill")
-
-
 # INDEPENDENT VARIABLES ---------------------------------------------------
 # glm mod
 mod1 <- logitMod(md, c("day_of_week", "hour", "to.avg_stop_times", 
@@ -73,8 +67,7 @@ plot(roc(testing$occ_binary, testing$pred, direction="<"),
      col="yellow", lwd=3, main="ROC Curve")
 
 ggplot(testing, aes(x = pred, y = occ_binary)) + geom_jitter(color = "blue") + 
-  xlim(-1,2.5) + theme_minimal()
+  theme_minimal()
 
-md$occ_binary <- ifelse(md$occ_binary == "H", 1, 0)
-
+head(testing)
 

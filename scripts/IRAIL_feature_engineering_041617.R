@@ -63,14 +63,6 @@ stations <- findHubs(stations, 11)[,c("groups", "k", "maxcount")] %>%
   cbind(stations, .)
 stations$groups <- stations$groups %>% paste0("g", .) %>% as.factor()
 
-
-stations$maj_groups <- stations[,c("count")] %>%
-  dist(method = "euclidean") %>%
-  hclust(method="ward.D") %>%
-  cutree(5) %>%
-  paste0("mg", .) %>%
-  as.factor()
-
 stations$major_hub <- ifelse(stations$maj_groups == "mg5", "Y", "N")
 stations$non_hub <- ifelse(stations$maj_groups == "mg2", "Y", "N")
 
@@ -85,7 +77,6 @@ trips$line <- paste0("l.", trips$line) %>% as.factor()
 dat <- trips %>% 
   joinToTrips( ., "from") %>%
   joinToTrips( ., "to")
-
 
 # NEW VARIABLES -----------------------------------------------------------
 

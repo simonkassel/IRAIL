@@ -7,17 +7,17 @@
 source("https://raw.githubusercontent.com/simonkassel/IRAIL/master/scripts/IRAIL_helper_functions_032317.R")
 
 # load packages
-packages(c("plyr", "dplyr", "ggplot2", "ggmap", "ggthemes", "chron"))
+packages(c("plyr", "dplyr", "ggplot2", "ggmap", "ggthemes", "chron", "tidyr", "reshape2"))
 
 # global options
-options(stringsAsFactors = FALSE)
+options(stringsAsFactors = TRUE)
 options(scipen = "999")
 
 # data
 stations <- read.csv("https://raw.githubusercontent.com/simonkassel/IRAIL/master/data/stations_cleaned.csv")
 dat <- read.csv("https://raw.githubusercontent.com/simonkassel/IRAIL/master/data/trip_data_clean.csv")
 md <- read.csv("https://raw.githubusercontent.com/simonkassel/IRAIL/master/data/model_variables.csv")
-
+md <- md[,-1]
 
 # MAP THE STATIONS --------------------------------------------------------
 # new station variables
@@ -140,27 +140,89 @@ ggplot(dat, aes(x = occupancy, fill = occupancy)) + geom_bar(stat = "count") +
   ggtitle("Dist. of training set occupancy levels") + xlab("") + ylab("Count")
 
 
+
+# PREDICTOR VARIABLES -----------------------------------------------------
+
+catv <- md[, !sapply(md, is.numeric)]
+catv$occ_binary <- md$occ_binary
+
+catv_tidy <- melt(catv, id.vars = "occ_binary", measure.vars = names(catv)[which(names(catv) != "occ_binary")])
+
+ggplot(catv_tidy, aes(x = as.factor(occ_binary), 
+                      fill = value)) + 
+  geom_bar(position = "fill") + facet_wrap(~variable) + 
+  labs(
+    title = "Categorical predictors"
+  ) +
+  xlab("Train traffice level (0=low, 1=high)") +
+  theme_minimal() + theme(
+    legend.position = "none",
+    axis.text.y = element_blank()
+  )
+
+conv <- md[, sapply(md, is.numeric)]
+conv_tidy <- melt(conv, id.vars = "occ_binary", measure.vars = names(conv)[which(names(conv) != "occ_binary")])
+
+ggplot(conv_tidy, aes(x = as.factor(occ_binary), 
+                      y = value)) + 
+  geom_boxplot() + facet_wrap(~variable, scales = "free") + 
+  labs(
+    title = "Continuous predictors"
+  ) +
+  xlab("Train traffic level (0=low, 1=high)") +
+  theme_minimal() + theme(
+    legend.position = "none",
+    axis.text.y = element_blank()
+  )
+
 # NETOWRK HIERARCHY -------------------------------------------------------
 
-t2 <- findHubs(stations, 3)
+###
+mult_k <- ldply(c(5:13), function(x) {
+  return(findHubs(stations, x))
+})
+mult_k$k <- factor(mult_k$k, levels(mult_k$k)[c(5:9, 1:4)])
 
-# needs to be cleaned up
-st$quint <- ntile(st$count, 10) 
+ggplot(mult_k, aes(x = longitude, y = latitude, color = as.factor(groups))) + 
+  geom_point() + geom_label(data = filter(mult_k, maxcount == count), aes(label = name), size = 2) +
+  theme_void() + facet_wrap(~k, ncol = 3) + ggtitle("Spatial Clustering of Stations, different numbers (k) of clusters") +
+  theme(
+    legend.position = "none",
+    strip.text = element_text(size = 12),
+    plot.title = element_text(hjust = 0.5)
+  )
 
-bmc <- get_googlemap(center = c(mean(st$longitude), mean(st$latitude)), zoom = 8, color = "bw")
+stations$maj_groups <- as.factor(stations$maj_groups)
+stations$maj_groups <- factor(stations$maj_groups, levels(stations$maj_groups)[c(2,1,3:5)])
+
+leg_labels <- ddply(stations, ~maj_groups, summarise, name = paste0(min(count), " - ", max(count)))$name
+pal <- c('#c7e9b4','#7fcdbb','#41b6c4','#2c7fb8','#253494')
+
+ggplot(stations, aes(x = longitude, y = latitude, color = maj_groups)) + 
+  geom_point(size = 2) + 
+  
+  theme_void() + labs(title = "Belgian Rail Hierarchy", subtitle = "# of trains to come through each station") +
+  scale_color_manual("Number of trains", values = pal, labels = leg_labels) + 
+  geom_label(data = filter(stations, major_hub == "Y"), aes(label = name), size = 2) +
+  theme(
+    legend.position = "right",
+    plot.margin = unit(c(0.5, 0.5, 0.5, 0.5), "in")
+  )
 
 
-# Map stations in and out of training set
-map.stations <- ggmap(bmc) + 
-  geom_point(data = st, aes(x = longitude, y = latitude, color = count), size = 1) +
-  theme_map() +
-  #scale_color_brewer("Station in \nTraining Set?") +
-  ggtitle("Belgian Train Stations") +
-  theme( 
-    legend.position = c(.05,.85),
-    legend.direction = "horizontal",
-    plot.title = element_text(face = "bold", hjust = "0.5", size = 14))
-ggsave("IRAIL_stage1_mapping_stations.pdf", map.stations, device = "pdf", width = 8.5, height = 11, units = "in")
+
+stations$maj_groups <- stations[,c("count")] %>%
+  dist(method = "euclidean") %>%
+  hclust(method="ward.D") %>%
+  cutree(5) %>%
+  paste0("mg", .) %>%
+  as.factor()
+
+
+
+
+
+
 
 
 # mapping clusters
