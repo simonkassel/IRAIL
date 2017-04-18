@@ -141,6 +141,31 @@ dat <- ldply(weather_data, findWeather) %>%
 dat$weather_type <- dat$weather_type %>% paste0("wt.", .) %>% as.factor()
 
 
+# ADDITIONAL FEATURES -----------------------------------------------------
+
+# add'l network variables
+dat$to_from_maj_hub <- ifelse(dat$to.major_hub == "Y" | dat$from.major_hub == "Y", "Y", "N")
+dat$in_group <- ifelse(dat$to.groups == dat$from.groups, "Y", "N")
+dat$in_group_maj <- ifelse(dat$to.maj_groups == dat$from.maj_groups, "Y", "N")
+
+# line variables
+dat$tf_avg_stop <- (dat$to.avg_stop_times + dat$from.avg_stop_times) / 2 
+dat$tf_count <- (dat$to.count + dat$from.count) / 2
+
+# ind provinces
+dat$to.Hainut <- ifelse(dat$to.prov == "Hainaut", "Y", "N")
+dat$to.VlaamsBrabant <- ifelse(dat$to.prov == "Vlaams Brabant", "Y", "N")
+dat$from.Hainut <- ifelse(dat$from.prov == "Hainaut", "Y", "N")
+dat$from.VlaamsBrabant <- ifelse(dat$from.prov == "Vlaams Brabant", "Y", "N")
+
+# line fixed effect vairiables
+dat$line <- ifelse(dat$line %in% c("l.122", "l.123", "l.130","l.140","l.29", "l.58", "l.86", "l.97"), "l.other", as.character(dat$line)) %>% as.factor()
+dat$line <- ifelse(dat$line == "l.75" | dat$line == "l.73", "l.75-73", as.character(dat$line))
+dat$line7573 <- ifelse(dat$line == "l.75-73", "Y", "N") %>% as.factor()
+dat$line66 <- ifelse(dat$line == "l.66", "Y", "N") %>% as.factor()
+dat$line12 <- ifelse(dat$line == "l.12", "Y", "N") %>% as.factor()
+
+
 # OUTPUT MODEL DATASET ----------------------------------------------------
 
 # Stations
@@ -161,7 +186,14 @@ dat_p <- dat %>% select(occ_binary, line, hour, day_of_week, dist_rush, to_from_
                         from.avg_stop_times, from.prov, from.count, from.groups, from.maxcount, 
                         from.maj_groups, from.major_hub, from.non_hub,
                         to.avg_stop_times, to.prov, to.count, to.groups, to.maxcount, 
-                        to.maj_groups, to.major_hub, to.non_hub)
+                        to.maj_groups, to.major_hub, to.non_hub,
+                        # new vars
+                        to_from_maj_hub, tf_avg_stop, tf_count, to.Hainut,
+                        to.VlaamsBrabant, from.Hainut, from.VlaamsBrabant, line7573,
+                        line66, line12, in_group, in_group_maj
+                        )
+
+write.csv(dat_p, "model_variables.csv")
 
 remove(lbc, line_count, test_trips, all_routes, allrows, count_of_routes, i, remainingrows,
        weather_data, x, stations_sp, provinces)
