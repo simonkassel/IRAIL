@@ -90,7 +90,7 @@ dat <- trips %>%
 # NEW VARIABLES -----------------------------------------------------------
 
 # Occupancy binary variables
-dat$occ_binary <- ifelse(dat$occupancy == "high", "H", "L") %>% as.factor()
+dat$occ_binary <- ifelse(dat$occupancy == "high", 1, 0) %>% as.factor()
 
 # date-time
 dat$date_time <- paste(dat$date, dat$time, sep = " ") %>%

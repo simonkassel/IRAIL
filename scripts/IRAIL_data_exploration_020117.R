@@ -16,6 +16,8 @@ options(scipen = "999")
 # data
 stations <- read.csv("https://raw.githubusercontent.com/simonkassel/IRAIL/master/data/stations_cleaned.csv")
 dat <- read.csv("https://raw.githubusercontent.com/simonkassel/IRAIL/master/data/trip_data_clean.csv")
+md <- read.csv("https://raw.githubusercontent.com/simonkassel/IRAIL/master/data/model_variables.csv")
+
 
 # MAP THE STATIONS --------------------------------------------------------
 # new station variables
@@ -139,6 +141,8 @@ ggplot(dat, aes(x = occupancy, fill = occupancy)) + geom_bar(stat = "count") +
 
 
 # NETOWRK HIERARCHY -------------------------------------------------------
+
+t2 <- findHubs(stations, 3)
 
 # needs to be cleaned up
 st$quint <- ntile(st$count, 10) 
